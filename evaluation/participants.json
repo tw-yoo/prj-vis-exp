@@ -47,7 +47,19 @@
       "chart": "CO4"
     }
   },
+  "S2C400": {
+    "order": {
+      "system": "SO2",
+      "chart": "CO4"
+    }
+  },
   "SO3CO1": {
+    "order": {
+      "system": "SO3",
+      "chart": "CO1"
+    }
+  },
+  "S3C100": {
     "order": {
       "system": "SO3",
       "chart": "CO1"

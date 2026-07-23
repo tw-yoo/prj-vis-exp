@@ -1,0 +1,41 @@
+{
+    "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+    "description": "Grouped bar chart for 5h3kwud9twuzfrmo.csv",
+    "data": {
+        "url": "ChartQA/data/csv/bar/grouped/5h3kwud9twuzfrmo.csv"
+    },
+    "mark": "bar",
+    "encoding": {
+        "column": {
+            "field": "Group",
+            "type": "nominal",
+            "header": {}
+        },
+        "y": {
+            "field": "Revenue in million Euros",
+            "type": "quantitative",
+            "axis": {
+                "grid": false
+            }
+        },
+        "x": {
+            "field": "Year",
+            "type": "nominal",
+            "axis": {
+                "title": ""
+            }
+        },
+        "color": {
+            "field": "Year",
+            "type": "nominal"
+        }
+    },
+    "config": {
+        "view": {
+            "stroke": "transparent"
+        },
+        "axis": {
+            "domainWidth": 1
+        }
+    }
+}

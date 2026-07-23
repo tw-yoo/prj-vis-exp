@@ -88,7 +88,7 @@
  "0q8vqyb35mbq0efx": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Age Group",
+  "x_field": "Year",
   "y_field": "Number of suicides",
   "measure_field": "Number of suicides",
   "series_field": "Age Group",
@@ -106,14 +106,9 @@
   "measure_fields": [
    "Number of suicides"
   ],
-  "n_rows": 44,
+  "n_rows": 24,
   "categorical_values": {
    "Year": [
-    "2009",
-    "2010",
-    "2011",
-    "2012",
-    "2013",
     "2014",
     "2015",
     "2016",
@@ -131,8 +126,8 @@
   "numeric_stats": {
    "Number of suicides": {
     "min": 22.0,
-    "max": 517.0,
-    "mean": 212.431818
+    "max": 341.0,
+    "mean": 195.291667
    }
   },
   "context_warnings": []
@@ -415,7 +410,7 @@
  "0prhtod4tli879nh": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Year",
+  "x_field": "City",
   "y_field": "Population in millions",
   "measure_field": "Population in millions",
   "series_field": "Year",
@@ -551,7 +546,7 @@
  "0rfuaawgi58ajpsv": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Region",
+  "x_field": "Year",
   "y_field": "Media rights revenue in billion US dollars",
   "measure_field": "Media rights revenue in billion US dollars",
   "series_field": "Region",
@@ -597,7 +592,7 @@
  "0rdpculfpyw3bv5p": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Type",
+  "x_field": "Year",
   "y_field": "Value in billion US dollars",
   "measure_field": "Value in billion US dollars",
   "series_field": "Type",
@@ -1418,7 +1413,7 @@
  "0egzejn5mejtnfdm": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Region",
+  "x_field": "ResponseCategory",
   "y_field": "SharePercentage",
   "measure_field": "SharePercentage",
   "series_field": "Region",
@@ -1598,7 +1593,7 @@
  "0fhm43s0j7glca29": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Year",
+  "x_field": "Product Category",
   "y_field": "Revenue in billion US dollars",
   "measure_field": "Revenue in billion US dollars",
   "series_field": "Year",
@@ -1642,7 +1637,7 @@
  "0gacqohbzj07n25s": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Procedure Type",
+  "x_field": "Country",
   "y_field": "Number of procedures",
   "measure_field": "Number of procedures",
   "series_field": "Procedure Type",
@@ -1795,7 +1790,7 @@
  "0ihx2vzdsej883sq": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Gender",
+  "x_field": "Category",
   "y_field": "Share of employees",
   "measure_field": "Share of employees",
   "series_field": "Gender",
@@ -1884,7 +1879,7 @@
  "0k75gqf8ckjikdym": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Gender",
+  "x_field": "Year",
   "y_field": "Average age at marriage",
   "measure_field": "Average age at marriage",
   "series_field": "Gender",
@@ -2119,7 +2114,7 @@
  "0lua5jsw92d3enb4": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Year",
+  "x_field": "Diet Type",
   "y_field": "Share of respondents",
   "measure_field": "Share of respondents",
   "series_field": "Year",
@@ -2449,7 +2444,7 @@
  "0oinwvo88bvvs25b": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Gender",
+  "x_field": "Service",
   "y_field": "Share of women and men",
   "measure_field": "Share of women and men",
   "series_field": "Gender",
@@ -2683,7 +2678,7 @@
  "0opt5fjw2xphdgp2": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Race/Ethnicity",
+  "x_field": "Frequency",
   "y_field": "Share of respondents",
   "measure_field": "Share of respondents",
   "series_field": "Race/Ethnicity",
@@ -2870,7 +2865,7 @@
  "01h0jkno5l7jola8": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Gender",
+  "x_field": "Artist",
   "y_field": "Share of respondents",
   "measure_field": "Share of respondents",
   "series_field": "Gender",
@@ -2965,7 +2960,7 @@
  "01mksjs373fhcl4q": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Year",
+  "x_field": "Sector",
   "y_field": "Average length of lease in years",
   "measure_field": "Average length of lease in years",
   "series_field": "Year",
@@ -3323,7 +3318,7 @@
  "07lo3vvwztz32ifq": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Year",
+  "x_field": "Region",
   "y_field": "Net_Sales_Percentage",
   "measure_field": "Net_Sales_Percentage",
   "series_field": "Year",
@@ -3557,7 +3552,7 @@
  "0bgcjlbz7nv5vnjc": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "AgeGroup",
+  "x_field": "Period",
   "y_field": "SharePercentage",
   "measure_field": "SharePercentage",
   "series_field": "AgeGroup",
@@ -3851,7 +3846,7 @@
  "0vw6ydim9cff8ji6": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Period",
+  "x_field": "Industry Sector",
   "y_field": "Share of SMEs",
   "measure_field": "Share of SMEs",
   "series_field": "Period",
@@ -4090,7 +4085,7 @@
  "0w5jptak9peti0mj": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Region",
+  "x_field": "Year",
   "y_field": "Annual revenue in million USD",
   "measure_field": "Annual revenue in million USD",
   "series_field": "Region",
@@ -4322,7 +4317,7 @@
  "0wgqpso2vnilpym6": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Year",
+  "x_field": "Region",
   "y_field": "Production in million barrels per day",
   "measure_field": "Production in million barrels per day",
   "series_field": "Year",
@@ -4566,7 +4561,7 @@
  "0xc7sx6ll8fl5rgh": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Candidate",
+  "x_field": "Age Group",
   "y_field": "Percentage of votes",
   "measure_field": "Percentage of votes",
   "series_field": "Candidate",
@@ -4693,7 +4688,7 @@
  "12sdcc2xjltg7qj2": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Category",
+  "x_field": "Year",
   "y_field": "Value_Million_USD",
   "measure_field": "Value_Million_USD",
   "series_field": "Category",
@@ -4963,7 +4958,7 @@
  "0ykydh8vao50ceou": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Year",
+  "x_field": "Channel",
   "y_field": "Share of total gross premiums written",
   "measure_field": "Share of total gross premiums written",
   "series_field": "Year",
@@ -5166,7 +5161,7 @@
  "0zjxkqy20iibpdvo": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Gender",
+  "x_field": "Platform",
   "y_field": "Share of respondents",
   "measure_field": "Share of respondents",
   "series_field": "Gender",
@@ -5295,7 +5290,7 @@
  "0yx2080f08329xxb": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Channel",
+  "x_field": "Year",
   "y_field": "Value market share",
   "measure_field": "Value market share",
   "series_field": "Channel",
@@ -5923,7 +5918,7 @@
  "1gb8sqnptdsdvagz": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Age Group",
+  "x_field": "Hair Removal Type",
   "y_field": "Share of respondents",
   "measure_field": "Share of respondents",
   "series_field": "Age Group",
@@ -6018,7 +6013,7 @@
  "1hm2mi3o0ejxp7tn": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Gender",
+  "x_field": "Group",
   "y_field": "Share of respondents",
   "measure_field": "Share of respondents",
   "series_field": "Gender",
@@ -6302,7 +6297,7 @@
  "1ar60b8rke2d8e64": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Type",
+  "x_field": "Time Period",
   "y_field": "Retention rate",
   "measure_field": "Retention rate",
   "series_field": "Type",
@@ -6472,7 +6467,7 @@
  "16fif5hdi8yzml00": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Type",
+  "x_field": "State",
   "y_field": "Payment_Million_USD",
   "measure_field": "Payment_Million_USD",
   "series_field": "Type",
@@ -6699,7 +6694,7 @@
  "1jatwi94v2d8cr9u": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Market Type",
+  "x_field": "Year",
   "y_field": "Value in billion US dollars",
   "measure_field": "Value in billion US dollars",
   "series_field": "Market Type",
@@ -6986,7 +6981,7 @@
  "1hokbw2gmzar9ye8": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Age Group",
+  "x_field": "Group",
   "y_field": "Percentage of adults",
   "measure_field": "Percentage of adults",
   "series_field": "Age Group",
@@ -7236,7 +7231,7 @@
  "1j7gx35h6i9mpi6j": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Response",
+  "x_field": "Item",
   "y_field": "Share of respondents",
   "measure_field": "Share of respondents",
   "series_field": "Response",
@@ -7477,7 +7472,7 @@
  "1mzcynif2s4mm6ps": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Respondent Group",
+  "x_field": "Item",
   "y_field": "Share of respondents",
   "measure_field": "Share of respondents",
   "series_field": "Respondent Group",
@@ -7575,7 +7570,7 @@
  "1p6uue3hxdxit3ey": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Age Group",
+  "x_field": "Response",
   "y_field": "Percentage of respondents",
   "measure_field": "Percentage of respondents",
   "series_field": "Age Group",
@@ -7710,7 +7705,7 @@
  "1suppecte0dm69gm": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Response",
+  "x_field": "Respondent Group",
   "y_field": "Percentage of respondents",
   "measure_field": "Percentage of respondents",
   "series_field": "Response",
@@ -8119,7 +8114,7 @@
  "1qm2z3ooawf339jz": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Region",
+  "x_field": "Response Category",
   "y_field": "Share of respondents",
   "measure_field": "Share of respondents",
   "series_field": "Region",
@@ -8407,7 +8402,7 @@
  "1x37jzohqd666qc0": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Response",
+  "x_field": "Category",
   "y_field": "Percentage of respondents",
   "measure_field": "Percentage of respondents",
   "series_field": "Response",
@@ -8635,7 +8630,7 @@
  "23bplnbw291p6nil": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Gender",
+  "x_field": "Age_Group",
   "y_field": "Median_Annual_Pay_GBP",
   "measure_field": "Median_Annual_Pay_GBP",
   "series_field": "Gender",
@@ -8788,7 +8783,7 @@
  "23zc8kuhnpespj98": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Gender",
+  "x_field": "Genre",
   "y_field": "Share_of_Respondents",
   "measure_field": "Share_of_Respondents",
   "series_field": "Gender",
@@ -8927,7 +8922,7 @@
  "221xoyhy3yziwabm": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Year",
+  "x_field": "Satisfaction_Level",
   "y_field": "Share_of_Respondents",
   "measure_field": "Share_of_Respondents",
   "series_field": "Year",
@@ -8970,7 +8965,7 @@
  "25n4mzhv6y1p36dl": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Intent",
+  "x_field": "Sector",
   "y_field": "Share_of_Respondents",
   "measure_field": "Share_of_Respondents",
   "series_field": "Intent",
@@ -9517,7 +9512,7 @@
  "263367gingx3k5hu": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Year",
+  "x_field": "Region",
   "y_field": "Demand_Million_Metric_Tons",
   "measure_field": "Demand_Million_Metric_Tons",
   "series_field": "Year",
@@ -9656,7 +9651,7 @@
  "2a7luy1tzrplr2as": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Rice Type",
+  "x_field": "Fiscal Year",
   "y_field": "Export value in billion US dollars",
   "measure_field": "Export value in billion US dollars",
   "series_field": "Rice Type",
@@ -10044,7 +10039,7 @@
  "2ecy6apyrdfpoqbo": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Item",
+  "x_field": "Fiscal Year",
   "y_field": "Sales price in US dollars",
   "measure_field": "Sales price in US dollars",
   "series_field": "Item",
@@ -10323,7 +10318,7 @@
  "273wm22z47ptlhzz": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Usage_Period",
+  "x_field": "Gender",
   "y_field": "Share_of_Respondents",
   "measure_field": "Share_of_Respondents",
   "series_field": "Usage_Period",
@@ -10537,7 +10532,7 @@
  "2203wq7kgv5ha9fi": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Housing_Status",
+  "x_field": "Age_Group",
   "y_field": "Share_of_Respondents",
   "measure_field": "Share_of_Respondents",
   "series_field": "Housing_Status",
@@ -10582,7 +10577,7 @@
  "20lb7iojghs85r21": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Grade",
+  "x_field": "Year",
   "y_field": "Percentage_of_Respondents",
   "measure_field": "Percentage_of_Respondents",
   "series_field": "Grade",
@@ -10634,7 +10629,7 @@
  "1xj7x49epprmpod7": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Market Type",
+  "x_field": "Year",
   "y_field": "Number of companies",
   "measure_field": "Number of companies",
   "series_field": "Market Type",
@@ -10869,7 +10864,7 @@
  "21klhgimadx4zsi9": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Sector",
+  "x_field": "Year",
   "y_field": "Revenue_Million_Euros",
   "measure_field": "Revenue_Million_Euros",
   "series_field": "Sector",
@@ -11624,7 +11619,7 @@
  "58wxo6da4x2w1ass": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Candidate",
+  "x_field": "Worker Type",
   "y_field": "Share of Voters",
   "measure_field": "Share of Voters",
   "series_field": "Candidate",
@@ -11807,7 +11802,7 @@
  "50pei8jwlb2g5h1q": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Period",
+  "x_field": "Country",
   "y_field": "Sales in billion GBP",
   "measure_field": "Sales in billion GBP",
   "series_field": "Period",
@@ -11930,7 +11925,7 @@
  "31d6673lje5rb1nw": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "States",
+  "x_field": "Type",
   "y_field": "Number of soldiers",
   "measure_field": "Number of soldiers",
   "series_field": "States",
@@ -12144,7 +12139,7 @@
  "56010lp5kjl1p4by": {
   "chart_type": "bar_grouped",
   "errors": [],
-  "x_field": "Type",
+  "x_field": "Year",
   "y_field": "Average number of emplyees",
   "measure_field": "Average number of emplyees",
   "series_field": "Type",
@@ -12180,6 +12175,1896 @@
     "min": 1.5,
     "max": 2.5,
     "mean": 1.9875
+   }
+  },
+  "context_warnings": []
+ },
+ "0asi8pbitsbxnodv": {
+  "chart_type": "bar_simple",
+  "errors": [],
+  "x_field": "Year",
+  "y_field": "Number of enterprises",
+  "measure_field": "Number of enterprises",
+  "series_field": null,
+  "mark": "bar",
+  "is_stacked": false,
+  "columns": [
+   "Year",
+   "Number of enterprises"
+  ],
+  "dimension_fields": [
+   "Year"
+  ],
+  "measure_fields": [
+   "Number of enterprises"
+  ],
+  "n_rows": 10,
+  "categorical_values": {
+   "Year": [
+    "2008",
+    "2009",
+    "2010",
+    "2011",
+    "2012",
+    "2013",
+    "2014",
+    "2015",
+    "2016",
+    "2017"
+   ]
+  },
+  "numeric_stats": {
+   "Number of enterprises": {
+    "min": 32.0,
+    "max": 47.0,
+    "mean": 38.6
+   }
+  },
+  "context_warnings": []
+ },
+ "ddnda3bjdstiwf90": {
+  "chart_type": "line_multiple",
+  "errors": [],
+  "x_field": "Year",
+  "y_field": "Percentage",
+  "measure_field": "Percentage",
+  "series_field": "Party",
+  "mark": "line",
+  "is_stacked": false,
+  "columns": [
+   "Year",
+   "Party",
+   "Percentage"
+  ],
+  "dimension_fields": [
+   "Year",
+   "Party"
+  ],
+  "measure_fields": [
+   "Percentage"
+  ],
+  "n_rows": 21,
+  "categorical_values": {
+   "Year": [
+    "2006",
+    "2007",
+    "2008",
+    "2009",
+    "2010",
+    "2011",
+    "2012"
+   ],
+   "Party": [
+    "Democrat",
+    "Independent",
+    "Republican"
+   ]
+  },
+  "numeric_stats": {
+   "Percentage": {
+    "min": 35.0,
+    "max": 91.0,
+    "mean": 65.666667
+   }
+  },
+  "context_warnings": []
+ },
+ "2jwbvymb2n0i24la": {
+  "chart_type": "bar_grouped",
+  "errors": [],
+  "x_field": "Group",
+  "y_field": "Share of students",
+  "measure_field": "Share of students",
+  "series_field": "Race/Ethnicity",
+  "mark": "bar",
+  "is_stacked": true,
+  "columns": [
+   "Group",
+   "Race/Ethnicity",
+   "Share of students"
+  ],
+  "dimension_fields": [
+   "Group",
+   "Race/Ethnicity"
+  ],
+  "measure_fields": [
+   "Share of students"
+  ],
+  "n_rows": 12,
+  "categorical_values": {
+   "Group": [
+    "Female",
+    "Male",
+    "Total"
+   ],
+   "Race/Ethnicity": [
+    "All races / ethnicities",
+    "Black (non-Hispanic)",
+    "Hispanic",
+    "White (non-Hispanic)"
+   ]
+  },
+  "numeric_stats": {
+   "Share of students": {
+    "min": 0.038,
+    "max": 0.085,
+    "mean": 0.054
+   }
+  },
+  "context_warnings": []
+ },
+ "2qd9vs1accbshk2g": {
+  "chart_type": "bar_grouped",
+  "errors": [],
+  "x_field": "Period",
+  "y_field": "Number of fatalities",
+  "measure_field": "Number of fatalities",
+  "series_field": "Group",
+  "mark": "bar",
+  "is_stacked": true,
+  "columns": [
+   "Period",
+   "Group",
+   "Number of fatalities"
+  ],
+  "dimension_fields": [
+   "Period",
+   "Group"
+  ],
+  "measure_fields": [
+   "Number of fatalities"
+  ],
+  "n_rows": 14,
+  "categorical_values": {
+   "Period": [
+    "2013/14",
+    "2014/15",
+    "2015/16",
+    "2016/17",
+    "2017/18",
+    "2018/19",
+    "2019/20"
+   ],
+   "Group": [
+    "Fatalities (excluding suicide)",
+    "Suicide fatalities"
+   ]
+  },
+  "numeric_stats": {
+   "Number of fatalities": {
+    "min": 31.0,
+    "max": 286.0,
+    "mean": 153.357143
+   }
+  },
+  "context_warnings": []
+ },
+ "1nhvdb1l9awjyxs1": {
+  "chart_type": "bar_simple",
+  "errors": [],
+  "x_field": "Year",
+  "y_field": "Market size in billion US dollars",
+  "measure_field": "Market size in billion US dollars",
+  "series_field": null,
+  "mark": "bar",
+  "is_stacked": false,
+  "columns": [
+   "Year",
+   "Market size in billion US dollars"
+  ],
+  "dimension_fields": [
+   "Year"
+  ],
+  "measure_fields": [
+   "Market size in billion US dollars"
+  ],
+  "n_rows": 12,
+  "categorical_values": {
+   "Year": [
+    "2013",
+    "2014",
+    "2015",
+    "2016",
+    "2017",
+    "2018",
+    "2019",
+    "2020",
+    "2021",
+    "2022",
+    "2023",
+    "2024"
+   ]
+  },
+  "numeric_stats": {
+   "Market size in billion US dollars": {
+    "min": 2.0,
+    "max": 5.0,
+    "mean": 3.075
+   }
+  },
+  "context_warnings": []
+ },
+ "c7pc0uciecc5secj": {
+  "chart_type": "bar_stacked",
+  "errors": [],
+  "x_field": "Year",
+  "y_field": "Net sales in million US dollars",
+  "measure_field": "Net sales in million US dollars",
+  "series_field": "Region",
+  "mark": "bar",
+  "is_stacked": true,
+  "columns": [
+   "Year",
+   "Region",
+   "Net sales in million US dollars"
+  ],
+  "dimension_fields": [
+   "Year",
+   "Region"
+  ],
+  "measure_fields": [
+   "Net sales in million US dollars"
+  ],
+  "n_rows": 16,
+  "categorical_values": {
+   "Year": [
+    "2017",
+    "2018",
+    "2019",
+    "2020"
+   ],
+   "Region": [
+    "Europe",
+    "Japan",
+    "Rest of world",
+    "United States"
+   ]
+  },
+  "numeric_stats": {
+   "Net sales in million US dollars": {
+    "min": 140.97,
+    "max": 788.23,
+    "mean": 348.886875
+   }
+  },
+  "context_warnings": []
+ },
+ "bhqzjnykymk43yqi": {
+  "chart_type": "line_simple",
+  "errors": [],
+  "x_field": "Year",
+  "y_field": "Percentage of gross domestic product",
+  "measure_field": "Percentage of gross domestic product",
+  "series_field": null,
+  "mark": "line",
+  "is_stacked": false,
+  "columns": [
+   "Year",
+   "Percentage of gross domestic product"
+  ],
+  "dimension_fields": [
+   "Year"
+  ],
+  "measure_fields": [
+   "Percentage of gross domestic product"
+  ],
+  "n_rows": 10,
+  "categorical_values": {
+   "Year": [
+    "2009",
+    "2010",
+    "2011",
+    "2012",
+    "2013",
+    "2014",
+    "2015",
+    "2016",
+    "2017",
+    "2018"
+   ]
+  },
+  "numeric_stats": {
+   "Percentage of gross domestic product": {
+    "min": 0.4,
+    "max": 1.71,
+    "mean": 0.852
+   }
+  },
+  "context_warnings": []
+ },
+ "dn0vscuua02yn80x": {
+  "chart_type": "line_multiple",
+  "errors": [],
+  "x_field": "Year",
+  "y_field": "Life expectancy at birth in years",
+  "measure_field": "Life expectancy at birth in years",
+  "series_field": "Gender",
+  "mark": "line",
+  "is_stacked": false,
+  "columns": [
+   "Year",
+   "Gender",
+   "Life expectancy at birth in years"
+  ],
+  "dimension_fields": [
+   "Year",
+   "Gender"
+  ],
+  "measure_fields": [
+   "Life expectancy at birth in years"
+  ],
+  "n_rows": 22,
+  "categorical_values": {
+   "Year": [
+    "2008",
+    "2009",
+    "2010",
+    "2011",
+    "2012",
+    "2013",
+    "2014",
+    "2015",
+    "2016",
+    "2017",
+    "2018"
+   ],
+   "Gender": [
+    "female",
+    "male"
+   ]
+  },
+  "numeric_stats": {
+   "Life expectancy at birth in years": {
+    "min": 71.6,
+    "max": 76.18,
+    "mean": 73.865
+   }
+  },
+  "context_warnings": []
+ },
+ "8mntkwdil1gq6xzh": {
+  "chart_type": "line_multiple",
+  "errors": [],
+  "x_field": "Year",
+  "y_field": "Median weekly earnings in GBP",
+  "measure_field": "Median weekly earnings in GBP",
+  "series_field": "Gender",
+  "mark": "line",
+  "is_stacked": false,
+  "columns": [
+   "Year",
+   "Gender",
+   "Median weekly earnings in GBP"
+  ],
+  "dimension_fields": [
+   "Year",
+   "Gender"
+  ],
+  "measure_fields": [
+   "Median weekly earnings in GBP"
+  ],
+  "n_rows": 48,
+  "categorical_values": {
+   "Year": [
+    "1997",
+    "1998",
+    "1999",
+    "2000",
+    "2001",
+    "2002",
+    "2003",
+    "2004",
+    "2005",
+    "2006",
+    "2007",
+    "2008",
+    "2009",
+    "2010",
+    "2011",
+    "2012",
+    "2013",
+    "2014",
+    "2015",
+    "2016",
+    "2017",
+    "2018",
+    "2019",
+    "2020"
+   ],
+   "Gender": [
+    "Female",
+    "Male"
+   ]
+  },
+  "numeric_stats": {
+   "Median weekly earnings in GBP": {
+    "min": 265.2,
+    "max": 629.2,
+    "mean": 454.2375
+   }
+  },
+  "context_warnings": []
+ },
+ "5rjyoxyictwaceaz": {
+  "chart_type": "line_simple",
+  "errors": [],
+  "x_field": "Year",
+  "y_field": "Youth unemployment rate",
+  "measure_field": "Youth unemployment rate",
+  "series_field": null,
+  "mark": "line",
+  "is_stacked": false,
+  "columns": [
+   "Year",
+   "Youth unemployment rate"
+  ],
+  "dimension_fields": [
+   "Year"
+  ],
+  "measure_fields": [
+   "Youth unemployment rate"
+  ],
+  "n_rows": 22,
+  "categorical_values": {
+   "Year": [
+    "1999",
+    "2000",
+    "2001",
+    "2002",
+    "2003",
+    "2004",
+    "2005",
+    "2006",
+    "2007",
+    "2008",
+    "2009",
+    "2010",
+    "2011",
+    "2012",
+    "2013",
+    "2014",
+    "2015",
+    "2016",
+    "2017",
+    "2018",
+    "2019",
+    "2020"
+   ]
+  },
+  "numeric_stats": {
+   "Youth unemployment rate": {
+    "min": 6.67,
+    "max": 9.19,
+    "mean": 8.257727
+   }
+  },
+  "context_warnings": []
+ },
+ "2v5t32vooc6fjci1": {
+  "chart_type": "bar_stacked",
+  "errors": [],
+  "x_field": "Service",
+  "y_field": "Ratio",
+  "measure_field": "Ratio",
+  "series_field": "Frequency",
+  "mark": "bar",
+  "is_stacked": true,
+  "columns": [
+   "Service",
+   "Frequency",
+   "Ratio"
+  ],
+  "dimension_fields": [
+   "Service",
+   "Frequency"
+  ],
+  "measure_fields": [
+   "Ratio"
+  ],
+  "n_rows": 15,
+  "categorical_values": {
+   "Service": [
+    "Facebook",
+    "Instagram",
+    "LinkedIn",
+    "Pinterest",
+    "Twitter"
+   ],
+   "Frequency": [
+    "Daily",
+    "Less often",
+    "Weekly"
+   ]
+  },
+  "numeric_stats": {
+   "Ratio": {
+    "min": 7.0,
+    "max": 76.0,
+    "mean": 33.0
+   }
+  },
+  "context_warnings": []
+ },
+ "2un131viqyjzg34y": {
+  "chart_type": "bar_grouped",
+  "errors": [],
+  "x_field": "Year",
+  "y_field": "Number of shootings",
+  "measure_field": "Number of shootings",
+  "series_field": "Group",
+  "mark": "bar",
+  "is_stacked": true,
+  "columns": [
+   "Year",
+   "Group",
+   "Number of shootings"
+  ],
+  "dimension_fields": [
+   "Year",
+   "Group"
+  ],
+  "measure_fields": [
+   "Number of shootings"
+  ],
+  "n_rows": 12,
+  "categorical_values": {
+   "Year": [
+    "2017",
+    "2018",
+    "2019",
+    "2020"
+   ],
+   "Group": [
+    "Fatalities",
+    "Total",
+    "Wounding"
+   ]
+  },
+  "numeric_stats": {
+   "Number of shootings": {
+    "min": 42.0,
+    "max": 366.0,
+    "mean": 168.166667
+   }
+  },
+  "context_warnings": []
+ },
+ "2r83eabrn5muyizm": {
+  "chart_type": "bar_grouped",
+  "errors": [],
+  "x_field": "Region",
+  "y_field": "Total external assets in billion US dollars",
+  "measure_field": "Total external assets in billion US dollars",
+  "series_field": "Year",
+  "mark": "bar",
+  "is_stacked": true,
+  "columns": [
+   "Region",
+   "Year",
+   "Total external assets in billion US dollars"
+  ],
+  "dimension_fields": [
+   "Region",
+   "Year"
+  ],
+  "measure_fields": [
+   "Total external assets in billion US dollars"
+  ],
+  "n_rows": 15,
+  "categorical_values": {
+   "Region": [
+    "Asia",
+    "Europe",
+    "Latin America",
+    "Middle East and North Africa",
+    "North America"
+   ],
+   "Year": [
+    "2014",
+    "2015",
+    "2016"
+   ]
+  },
+  "numeric_stats": {
+   "Total external assets in billion US dollars": {
+    "min": 43.14,
+    "max": 1280.0,
+    "mean": 526.334
+   }
+  },
+  "context_warnings": []
+ },
+ "chrkcwjl9vro8a6o": {
+  "chart_type": "bar_stacked",
+  "errors": [],
+  "x_field": "Quarter/Year",
+  "y_field": "Number of deals",
+  "measure_field": "Number of deals",
+  "series_field": "Region",
+  "mark": "bar",
+  "is_stacked": true,
+  "columns": [
+   "Quarter/Year",
+   "Region",
+   "Number of deals"
+  ],
+  "dimension_fields": [
+   "Quarter/Year",
+   "Region"
+  ],
+  "measure_fields": [
+   "Number of deals"
+  ],
+  "n_rows": 36,
+  "categorical_values": {
+   "Quarter/Year": [
+    "Q1 2016",
+    "Q1 2017",
+    "Q2 2016",
+    "Q2 2017",
+    "Q3 2015",
+    "Q3 2016",
+    "Q3 2017",
+    "Q4 2015",
+    "Q4 2016"
+   ],
+   "Region": [
+    "Australia",
+    "China/Hong Kong",
+    "India",
+    "Japan"
+   ]
+  },
+  "numeric_stats": {
+   "Number of deals": {
+    "min": 156.0,
+    "max": 1059.0,
+    "mean": 477.055556
+   }
+  },
+  "context_warnings": []
+ },
+ "5ldzsatw0rpbpxz3": {
+  "chart_type": "line_simple",
+  "errors": [],
+  "x_field": "Year",
+  "y_field": "Unemployment rate",
+  "measure_field": "Unemployment rate",
+  "series_field": null,
+  "mark": "line",
+  "is_stacked": false,
+  "columns": [
+   "Year",
+   "Unemployment rate"
+  ],
+  "dimension_fields": [
+   "Year"
+  ],
+  "measure_fields": [
+   "Unemployment rate"
+  ],
+  "n_rows": 22,
+  "categorical_values": {
+   "Year": [
+    "1999",
+    "2000",
+    "2001",
+    "2002",
+    "2003",
+    "2004",
+    "2005",
+    "2006",
+    "2007",
+    "2008",
+    "2009",
+    "2010",
+    "2011",
+    "2012",
+    "2013",
+    "2014",
+    "2015",
+    "2016",
+    "2017",
+    "2018",
+    "2019",
+    "2020"
+   ]
+  },
+  "numeric_stats": {
+   "Unemployment rate": {
+    "min": 3.4,
+    "max": 7.49,
+    "mean": 5.944091
+   }
+  },
+  "context_warnings": []
+ },
+ "bd95lx2pntlr7ati": {
+  "chart_type": "line_simple",
+  "errors": [],
+  "x_field": "Date",
+  "y_field": "Number of cases",
+  "measure_field": "Number of cases",
+  "series_field": null,
+  "mark": "line",
+  "is_stacked": false,
+  "columns": [
+   "Date",
+   "Number of cases"
+  ],
+  "dimension_fields": [
+   "Date"
+  ],
+  "measure_fields": [
+   "Number of cases"
+  ],
+  "n_rows": 10,
+  "categorical_values": {
+   "Date": [
+    "Apr 1",
+    "Aug 1",
+    "Feb 24",
+    "Jul 1",
+    "Jun 1",
+    "Mar 1",
+    "May 1",
+    "Nov 4",
+    "Oct 1",
+    "Sep 1"
+   ]
+  },
+  "numeric_stats": {
+   "Number of cases": {
+    "min": 1.0,
+    "max": 485870.0,
+    "mean": 127967.9
+   }
+  },
+  "context_warnings": []
+ },
+ "0a2itmazs9jgmmgh": {
+  "chart_type": "bar_simple",
+  "errors": [],
+  "x_field": "Company",
+  "y_field": "Value of M&A in million euros",
+  "measure_field": "Value of M&A in million euros",
+  "series_field": null,
+  "mark": "bar",
+  "is_stacked": false,
+  "columns": [
+   "Company",
+   "Value of M&A in million euros"
+  ],
+  "dimension_fields": [
+   "Company"
+  ],
+  "measure_fields": [
+   "Value of M&A in million euros"
+  ],
+  "n_rows": 5,
+  "categorical_values": {
+   "Company": [
+    "Cukurova Airport",
+    "Halkbank",
+    "Peak Games",
+    "Turkcell",
+    "Vakifbank"
+   ]
+  },
+  "numeric_stats": {
+   "Value of M&A in million euros": {
+    "min": 452.1,
+    "max": 1600.0,
+    "mean": 918.7
+   }
+  },
+  "context_warnings": []
+ },
+ "2qwuzopitv6gea9l": {
+  "chart_type": "bar_stacked",
+  "errors": [],
+  "x_field": "Country",
+  "y_field": "Percent",
+  "measure_field": "Percent",
+  "series_field": "Group",
+  "mark": "bar",
+  "is_stacked": true,
+  "columns": [
+   "Country",
+   "Group",
+   "Percent"
+  ],
+  "dimension_fields": [
+   "Country",
+   "Group"
+  ],
+  "measure_fields": [
+   "Percent"
+  ],
+  "n_rows": 24,
+  "categorical_values": {
+   "Country": [
+    "China",
+    "France",
+    "India",
+    "Mainstream",
+    "Prosumers",
+    "United Kingdom",
+    "United States",
+    "Worldwide"
+   ],
+   "Group": [
+    "Agree",
+    "Disagree",
+    "Neither"
+   ]
+  },
+  "numeric_stats": {
+   "Percent": {
+    "min": 6.0,
+    "max": 71.0,
+    "mean": 33.333333
+   }
+  },
+  "context_warnings": []
+ },
+ "1lxkhjyirlc8ghzj": {
+  "chart_type": "bar_simple",
+  "errors": [],
+  "x_field": "Year",
+  "y_field": "Number of hotels",
+  "measure_field": "Number of hotels",
+  "series_field": null,
+  "mark": "bar",
+  "is_stacked": false,
+  "columns": [
+   "Year",
+   "Number of hotels"
+  ],
+  "dimension_fields": [
+   "Year"
+  ],
+  "measure_fields": [
+   "Number of hotels"
+  ],
+  "n_rows": 12,
+  "categorical_values": {
+   "Year": [
+    "2009",
+    "2010",
+    "2011",
+    "2012",
+    "2013",
+    "2014",
+    "2015",
+    "2016",
+    "2017",
+    "2018",
+    "2019",
+    "2020"
+   ]
+  },
+  "numeric_stats": {
+   "Number of hotels": {
+    "min": 3420.0,
+    "max": 7642.0,
+    "mean": 5124.666667
+   }
+  },
+  "context_warnings": []
+ },
+ "4623mdsdv9ewvlb7": {
+  "chart_type": "line_multiple",
+  "errors": [],
+  "x_field": "Year",
+  "y_field": "Healthcare expenditure (in billion GBP)",
+  "measure_field": "Healthcare expenditure (in billion GBP)",
+  "series_field": "Sector",
+  "mark": "line",
+  "is_stacked": false,
+  "columns": [
+   "Year",
+   "Sector",
+   "Healthcare expenditure (in billion GBP)"
+  ],
+  "dimension_fields": [
+   "Year",
+   "Sector"
+  ],
+  "measure_fields": [
+   "Healthcare expenditure (in billion GBP)"
+  ],
+  "n_rows": 44,
+  "categorical_values": {
+   "Year": [
+    "1997",
+    "1998",
+    "1999",
+    "2000",
+    "2001",
+    "2002",
+    "2003",
+    "2004",
+    "2005",
+    "2006",
+    "2007",
+    "2008",
+    "2009",
+    "2010",
+    "2011",
+    "2012",
+    "2013",
+    "2014",
+    "2015",
+    "2016",
+    "2017",
+    "2018"
+   ],
+   "Sector": [
+    "Private",
+    "Public"
+   ]
+  },
+  "numeric_stats": {
+   "Healthcare expenditure (in billion GBP)": {
+    "min": 10.3,
+    "max": 149.5,
+    "mean": 58.697727
+   }
+  },
+  "context_warnings": []
+ },
+ "7rsc3a0rw1rlh7pk": {
+  "chart_type": "line_multiple",
+  "errors": [],
+  "x_field": "Period",
+  "y_field": "Number of news",
+  "measure_field": "Number of news",
+  "series_field": "Media",
+  "mark": "line",
+  "is_stacked": false,
+  "columns": [
+   "Period",
+   "Media",
+   "Number of news"
+  ],
+  "dimension_fields": [
+   "Period",
+   "Media"
+  ],
+  "measure_fields": [
+   "Number of news"
+  ],
+  "n_rows": 18,
+  "categorical_values": {
+   "Period": [
+    "16 Mar-22 Mar",
+    "2 Mar-8 Mar",
+    "21 Feb-23 Feb",
+    "23 Mar-29 Mar",
+    "24 Feb-1 Mar",
+    "9 Mar-15 Mar"
+   ],
+   "Media": [
+    "Internet",
+    "Newspapers and magazines",
+    "TV"
+   ]
+  },
+  "numeric_stats": {
+   "Number of news": {
+    "min": 4400.0,
+    "max": 421354.0,
+    "mean": 114760.833333
+   }
+  },
+  "context_warnings": []
+ },
+ "8rl54wqvzm1olimr": {
+  "chart_type": "line_multiple",
+  "errors": [],
+  "x_field": "Year",
+  "y_field": "Ratio of eligible voters(%)",
+  "measure_field": "Ratio of eligible voters(%)",
+  "series_field": "Type",
+  "mark": "line",
+  "is_stacked": false,
+  "columns": [
+   "Year",
+   "Type",
+   "Ratio of eligible voters(%)"
+  ],
+  "dimension_fields": [
+   "Year",
+   "Type"
+  ],
+  "measure_fields": [
+   "Ratio of eligible voters(%)"
+  ],
+  "n_rows": 10,
+  "categorical_values": {
+   "Year": [
+    "2000",
+    "2004",
+    "2008",
+    "2012",
+    "2016"
+   ],
+   "Type": [
+    "Foreign-born",
+    "US-born"
+   ]
+  },
+  "numeric_stats": {
+   "Ratio of eligible voters(%)": {
+    "min": 51.0,
+    "max": 65.0,
+    "mean": 58.1
+   }
+  },
+  "context_warnings": []
+ },
+ "4j7o14z979o5bq5d": {
+  "chart_type": "bar_stacked",
+  "errors": [],
+  "x_field": "Year",
+  "y_field": "Share of Respondents(%)",
+  "measure_field": "Share of Respondents(%)",
+  "series_field": "Status",
+  "mark": "bar",
+  "is_stacked": true,
+  "columns": [
+   "Year",
+   "Status",
+   "Share of Respondents(%)"
+  ],
+  "dimension_fields": [
+   "Year",
+   "Status"
+  ],
+  "measure_fields": [
+   "Share of Respondents(%)"
+  ],
+  "n_rows": 45,
+  "categorical_values": {
+   "Year": [
+    "2006",
+    "2007",
+    "2008",
+    "2009",
+    "2010",
+    "2011",
+    "2012",
+    "2013",
+    "2014",
+    "2015",
+    "2016",
+    "2017",
+    "2018",
+    "2019",
+    "2020"
+   ],
+   "Status": [
+    "Decreased",
+    "Increased",
+    "Present level"
+   ]
+  },
+  "numeric_stats": {
+   "Share of Respondents(%)": {
+    "min": 14.0,
+    "max": 50.0,
+    "mean": 32.222222
+   }
+  },
+  "context_warnings": []
+ },
+ "3na7qc2587mdrbox": {
+  "chart_type": "bar_stacked",
+  "errors": [],
+  "x_field": "World Region",
+  "y_field": "Share of regional population",
+  "measure_field": "Share of regional population",
+  "series_field": "Age Group",
+  "mark": "bar",
+  "is_stacked": true,
+  "columns": [
+   "World Region",
+   "Age Group",
+   "Share of regional population"
+  ],
+  "dimension_fields": [
+   "World Region",
+   "Age Group"
+  ],
+  "measure_fields": [
+   "Share of regional population"
+  ],
+  "n_rows": 24,
+  "categorical_values": {
+   "World Region": [
+    "Africa",
+    "Asia",
+    "Europe",
+    "Latin America and the Carribean",
+    "Nothern America",
+    "Oceania"
+   ],
+   "Age Group": [
+    "0-14",
+    "15-24",
+    "25-49",
+    "50 and over"
+   ]
+  },
+  "numeric_stats": {
+   "Share of regional population": {
+    "min": 10.3,
+    "max": 40.3,
+    "mean": 25.004167
+   }
+  },
+  "context_warnings": []
+ },
+ "6macy6l6h00wvng7": {
+  "chart_type": "bar_stacked",
+  "errors": [],
+  "x_field": "Year",
+  "y_field": "Revenue in million Euros",
+  "measure_field": "Revenue in million Euros",
+  "series_field": "Product Segment",
+  "mark": "bar",
+  "is_stacked": true,
+  "columns": [
+   "Year",
+   "Product Segment",
+   "Revenue in million Euros"
+  ],
+  "dimension_fields": [
+   "Year",
+   "Product Segment"
+  ],
+  "measure_fields": [
+   "Revenue in million Euros"
+  ],
+  "n_rows": 33,
+  "categorical_values": {
+   "Year": [
+    "2010",
+    "2011",
+    "2012",
+    "2013",
+    "2014",
+    "2015",
+    "2016",
+    "2017",
+    "2018",
+    "2019",
+    "2020"
+   ],
+   "Product Segment": [
+    "Foods and refreshment",
+    "Home care",
+    "Personal care"
+   ]
+  },
+  "numeric_stats": {
+   "Revenue in million Euros": {
+    "min": 7726.0,
+    "max": 24170.0,
+    "mean": 16777.939394
+   }
+  },
+  "context_warnings": []
+ },
+ "9g9t9lbwhc8yp623": {
+  "chart_type": "bar_stacked",
+  "errors": [],
+  "x_field": "Year",
+  "y_field": "Revenue in million US dollars",
+  "measure_field": "Revenue in million US dollars",
+  "series_field": "Group",
+  "mark": "bar",
+  "is_stacked": true,
+  "columns": [
+   "Year",
+   "Group",
+   "Revenue in million US dollars"
+  ],
+  "dimension_fields": [
+   "Year",
+   "Group"
+  ],
+  "measure_fields": [
+   "Revenue in million US dollars"
+  ],
+  "n_rows": 16,
+  "categorical_values": {
+   "Year": [
+    "2017",
+    "2018",
+    "2019",
+    "2020"
+   ],
+   "Group": [
+    "Men's",
+    "NIKE Kids'",
+    "Other",
+    "Women's"
+   ]
+  },
+  "numeric_stats": {
+   "Revenue in million US dollars": {
+    "min": 1400.0,
+    "max": 17737.0,
+    "mean": 7634.5625
+   }
+  },
+  "context_warnings": []
+ },
+ "9hgt5h53p4ic33md": {
+  "chart_type": "line_simple",
+  "errors": [],
+  "x_field": "Year",
+  "y_field": "Number of people in millions",
+  "measure_field": "Number of people in millions",
+  "series_field": null,
+  "mark": "line",
+  "is_stacked": false,
+  "columns": [
+   "Year",
+   "Number of people in millions"
+  ],
+  "dimension_fields": [
+   "Year"
+  ],
+  "measure_fields": [
+   "Number of people in millions"
+  ],
+  "n_rows": 10,
+  "categorical_values": {
+   "Year": [
+    "2015",
+    "2020",
+    "2025",
+    "2030",
+    "2035",
+    "2040",
+    "2045",
+    "2050",
+    "2055",
+    "2060"
+   ]
+  },
+  "numeric_stats": {
+   "Number of people in millions": {
+    "min": 16.9,
+    "max": 18.06,
+    "mean": 17.74
+   }
+  },
+  "context_warnings": []
+ },
+ "3nayzu649p458g9n": {
+  "chart_type": "bar_grouped",
+  "errors": [],
+  "x_field": "Age Group",
+  "y_field": "Visits in thousands",
+  "measure_field": "Visits in thousands",
+  "series_field": "Gender",
+  "mark": "bar",
+  "is_stacked": true,
+  "columns": [
+   "Age Group",
+   "Gender",
+   "Visits in thousands"
+  ],
+  "dimension_fields": [
+   "Age Group",
+   "Gender"
+  ],
+  "measure_fields": [
+   "Visits in thousands"
+  ],
+  "n_rows": 14,
+  "categorical_values": {
+   "Age Group": [
+    "0-15",
+    "16-24",
+    "25-34",
+    "35-44",
+    "45-54",
+    "55-64",
+    "65+"
+   ],
+   "Gender": [
+    "Female",
+    "Male"
+   ]
+  },
+  "numeric_stats": {
+   "Visits in thousands": {
+    "min": 4.0,
+    "max": 81.0,
+    "mean": 33.642857
+   }
+  },
+  "context_warnings": []
+ },
+ "b9vfcqsqid200mah": {
+  "chart_type": "line_multiple",
+  "errors": [],
+  "x_field": "Date",
+  "y_field": "Share of respondents",
+  "measure_field": "Share of respondents",
+  "series_field": "Type",
+  "mark": "line",
+  "is_stacked": false,
+  "columns": [
+   "Date",
+   "Type",
+   "Share of respondents"
+  ],
+  "dimension_fields": [
+   "Date",
+   "Type"
+  ],
+  "measure_fields": [
+   "Share of respondents"
+  ],
+  "n_rows": 26,
+  "categorical_values": {
+   "Date": [
+    "Apr 21",
+    "Aug 20",
+    "Dec 20",
+    "Feb 21",
+    "Jan 21",
+    "Jul 20",
+    "Jun 20",
+    "Jun 21",
+    "Mar 21",
+    "May 21",
+    "Nov 20",
+    "Oct 20",
+    "Sep 20"
+   ],
+   "Type": [
+    "Approve",
+    "Disapprove"
+   ]
+  },
+  "numeric_stats": {
+   "Share of respondents": {
+    "min": 15.0,
+    "max": 82.0,
+    "mean": 48.038462
+   }
+  },
+  "context_warnings": []
+ },
+ "0gehf5045207236n": {
+  "chart_type": "bar_simple",
+  "errors": [],
+  "x_field": "Year",
+  "y_field": "Number of fatalities",
+  "measure_field": "Number of fatalities",
+  "series_field": null,
+  "mark": "bar",
+  "is_stacked": false,
+  "columns": [
+   "Year",
+   "Number of fatalities"
+  ],
+  "dimension_fields": [
+   "Year"
+  ],
+  "measure_fields": [
+   "Number of fatalities"
+  ],
+  "n_rows": 17,
+  "categorical_values": {
+   "Year": [
+    "2003",
+    "2004",
+    "2005",
+    "2006",
+    "2007",
+    "2008",
+    "2009",
+    "2010",
+    "2011",
+    "2012",
+    "2014",
+    "2015",
+    "2016",
+    "2017",
+    "2018",
+    "2019",
+    "2020"
+   ]
+  },
+  "numeric_stats": {
+   "Number of fatalities": {
+    "min": 2.0,
+    "max": 904.0,
+    "mean": 258.0
+   }
+  },
+  "context_warnings": []
+ },
+ "8glm4qrzc2cbbq1e": {
+  "chart_type": "line_simple",
+  "errors": [],
+  "x_field": "Date",
+  "y_field": "Number of cases",
+  "measure_field": "Number of cases",
+  "series_field": null,
+  "mark": "line",
+  "is_stacked": false,
+  "columns": [
+   "Date",
+   "Number of cases"
+  ],
+  "dimension_fields": [
+   "Date"
+  ],
+  "measure_fields": [
+   "Number of cases"
+  ],
+  "n_rows": 10,
+  "categorical_values": {
+   "Date": [
+    "Apr 1",
+    "Aug 1",
+    "Feb 21",
+    "Jul 1",
+    "Jun 1",
+    "Mar 1",
+    "May 1",
+    "Nov 3",
+    "Oct 1",
+    "Sep 1"
+   ]
+  },
+  "numeric_stats": {
+   "Number of cases": {
+    "min": 1.0,
+    "max": 316528.0,
+    "mean": 82640.4
+   }
+  },
+  "context_warnings": []
+ },
+ "8n0916e3z0epuuyi": {
+  "chart_type": "line_simple",
+  "errors": [],
+  "x_field": "Year",
+  "y_field": "Youth unemployment rate(%)",
+  "measure_field": "Youth unemployment rate(%)",
+  "series_field": null,
+  "mark": "line",
+  "is_stacked": false,
+  "columns": [
+   "Year",
+   "Youth unemployment rate(%)"
+  ],
+  "dimension_fields": [
+   "Year"
+  ],
+  "measure_fields": [
+   "Youth unemployment rate(%)"
+  ],
+  "n_rows": 21,
+  "categorical_values": {
+   "Year": [
+    "1999",
+    "2000",
+    "2001",
+    "2002",
+    "2003",
+    "2004",
+    "2005",
+    "2006",
+    "2007",
+    "2008",
+    "2009",
+    "2010",
+    "2011",
+    "2012",
+    "2013",
+    "2014",
+    "2015",
+    "2016",
+    "2017",
+    "2018",
+    "2019"
+   ]
+  },
+  "numeric_stats": {
+   "Youth unemployment rate(%)": {
+    "min": 0.85,
+    "max": 5.5,
+    "mean": 2.977619
+   }
+  },
+  "context_warnings": []
+ },
+ "2wg6j8htdy5xge6g": {
+  "chart_type": "bar_grouped",
+  "errors": [],
+  "x_field": "Type",
+  "y_field": "Share of respondents",
+  "measure_field": "Share of respondents",
+  "series_field": "Trust",
+  "mark": "bar",
+  "is_stacked": true,
+  "columns": [
+   "Type",
+   "Trust",
+   "Share of respondents"
+  ],
+  "dimension_fields": [
+   "Type",
+   "Trust"
+  ],
+  "measure_fields": [
+   "Share of respondents"
+  ],
+  "n_rows": 35,
+  "categorical_values": {
+   "Type": [
+    "Employer",
+    "Government",
+    "Health Care",
+    "Ministry of Foreign Affairs",
+    "Public Health Agency of Sweden",
+    "School",
+    "Swedish Civil Contingencies Agency"
+   ],
+   "Trust": [
+    "1 - Very low",
+    "2",
+    "3",
+    "4",
+    "5 - Much trust"
+   ]
+  },
+  "numeric_stats": {
+   "Share of respondents": {
+    "min": 5.0,
+    "max": 33.0,
+    "mean": 17.628571
+   }
+  },
+  "context_warnings": []
+ },
+ "5h3kwud9twuzfrmo": {
+  "chart_type": "bar_grouped",
+  "errors": [],
+  "x_field": "Group",
+  "y_field": "Revenue in million Euros",
+  "measure_field": "Revenue in million Euros",
+  "series_field": "Year",
+  "mark": "bar",
+  "is_stacked": true,
+  "columns": [
+   "Year",
+   "Group",
+   "Revenue in million Euros"
+  ],
+  "dimension_fields": [
+   "Year",
+   "Group"
+  ],
+  "measure_fields": [
+   "Revenue in million Euros"
+  ],
+  "n_rows": 15,
+  "categorical_values": {
+   "Year": [
+    "2012",
+    "2013",
+    "2014",
+    "2015",
+    "2016"
+   ],
+   "Group": [
+    "Companion animals",
+    "Production animals",
+    "Total animal health"
+   ]
+  },
+  "numeric_stats": {
+   "Revenue in million Euros": {
+    "min": 790.0,
+    "max": 2708.0,
+    "mean": 1528.4
+   }
+  },
+  "context_warnings": []
+ },
+ "0haw38g4veha18pm": {
+  "chart_type": "bar_simple",
+  "errors": [],
+  "x_field": "Year",
+  "y_field": "Sales values in million GBP",
+  "measure_field": "Sales values in million GBP",
+  "series_field": null,
+  "mark": "bar",
+  "is_stacked": false,
+  "columns": [
+   "Year",
+   "Sales values in million GBP"
+  ],
+  "dimension_fields": [
+   "Year"
+  ],
+  "measure_fields": [
+   "Sales values in million GBP"
+  ],
+  "n_rows": 11,
+  "categorical_values": {
+   "Year": [
+    "2002",
+    "2003",
+    "2004",
+    "2005",
+    "2006",
+    "2007",
+    "2008",
+    "2009",
+    "2010",
+    "2011",
+    "2012"
+   ]
+  },
+  "numeric_stats": {
+   "Sales values in million GBP": {
+    "min": 6.2,
+    "max": 542.4,
+    "mean": 139.536364
+   }
+  },
+  "context_warnings": []
+ },
+ "0cnwglgcwmsbhp4g": {
+  "chart_type": "bar_simple",
+  "errors": [],
+  "x_field": "Year",
+  "y_field": "Sales volume in tones",
+  "measure_field": "Sales volume in tones",
+  "series_field": null,
+  "mark": "bar",
+  "is_stacked": false,
+  "columns": [
+   "Year",
+   "Sales volume in tones"
+  ],
+  "dimension_fields": [
+   "Year"
+  ],
+  "measure_fields": [
+   "Sales volume in tones"
+  ],
+  "n_rows": 11,
+  "categorical_values": {
+   "Year": [
+    "2009",
+    "2010",
+    "2011",
+    "2012",
+    "2013",
+    "2014",
+    "2015",
+    "2016",
+    "2017",
+    "2018",
+    "2019"
+   ]
+  },
+  "numeric_stats": {
+   "Sales volume in tones": {
+    "min": 79882.0,
+    "max": 174866.0,
+    "mean": 119652.0
+   }
+  },
+  "context_warnings": []
+ },
+ "71v97x2ifsxw6u8p": {
+  "chart_type": "line_multiple",
+  "errors": [],
+  "x_field": "Year",
+  "y_field": "Jordanians favorabile views on Russia(%)",
+  "measure_field": "Jordanians favorabile views on Russia(%)",
+  "series_field": "Type",
+  "mark": "line",
+  "is_stacked": false,
+  "columns": [
+   "Year",
+   "Type",
+   "Jordanians favorabile views on Russia(%)"
+  ],
+  "dimension_fields": [
+   "Year",
+   "Type"
+  ],
+  "measure_fields": [
+   "Jordanians favorabile views on Russia(%)"
+  ],
+  "n_rows": 22,
+  "categorical_values": {
+   "Year": [
+    "2007",
+    "2008",
+    "2009",
+    "2010",
+    "2011",
+    "2012",
+    "2013",
+    "2014",
+    "2015",
+    "2016",
+    "2017"
+   ],
+   "Type": [
+    "Favorable",
+    "Unfavorable"
+   ]
+  },
+  "numeric_stats": {
+   "Jordanians favorabile views on Russia(%)": {
+    "min": 5.0,
+    "max": 93.0,
+    "mean": 48.454545
+   }
+  },
+  "context_warnings": []
+ },
+ "6i84fq1ot2j0njaf": {
+  "chart_type": "line_simple",
+  "errors": [],
+  "x_field": "Year",
+  "y_field": "Index score on a scale from 0 to 100",
+  "measure_field": "Index score on a scale from 0 to 100",
+  "series_field": null,
+  "mark": "line",
+  "is_stacked": false,
+  "columns": [
+   "Year",
+   "Index score on a scale from 0 to 100"
+  ],
+  "dimension_fields": [
+   "Year"
+  ],
+  "measure_fields": [
+   "Index score on a scale from 0 to 100"
+  ],
+  "n_rows": 9,
+  "categorical_values": {
+   "Year": [
+    "2012",
+    "2013",
+    "2014",
+    "2015",
+    "2016",
+    "2017",
+    "2018",
+    "2019",
+    "2020"
+   ]
+  },
+  "numeric_stats": {
+   "Index score on a scale from 0 to 100": {
+    "min": 70.0,
+    "max": 74.0,
+    "mean": 71.666667
+   }
+  },
+  "context_warnings": []
+ },
+ "0dpnq3twj5hqhd53": {
+  "chart_type": "bar_simple",
+  "errors": [],
+  "x_field": "Country",
+  "y_field": "Number of adoptions",
+  "measure_field": "Number of adoptions",
+  "series_field": null,
+  "mark": "bar",
+  "is_stacked": false,
+  "columns": [
+   "Country",
+   "Number of adoptions"
+  ],
+  "dimension_fields": [
+   "Country"
+  ],
+  "measure_fields": [
+   "Number of adoptions"
+  ],
+  "n_rows": 7,
+  "categorical_values": {
+   "Country": [
+    "Belgium",
+    "Canada",
+    "Ireland",
+    "Mexico",
+    "Netherlands",
+    "Switzerland",
+    "United Kingdom"
+   ]
+  },
+  "numeric_stats": {
+   "Number of adoptions": {
+    "min": 1.0,
+    "max": 24.0,
+    "mean": 8.0
+   }
+  },
+  "context_warnings": []
+ },
+ "3have0aoq4pehoet": {
+  "chart_type": "bar_grouped",
+  "errors": [],
+  "x_field": "Company",
+  "y_field": "User engagement",
+  "measure_field": "User engagement",
+  "series_field": "Month",
+  "mark": "bar",
+  "is_stacked": true,
+  "columns": [
+   "Company",
+   "Month",
+   "User engagement"
+  ],
+  "dimension_fields": [
+   "Company",
+   "Month"
+  ],
+  "measure_fields": [
+   "User engagement"
+  ],
+  "n_rows": 15,
+  "categorical_values": {
+   "Company": [
+    "Amazon",
+    "Facebook",
+    "Google",
+    "Microsoft",
+    "Yahoo!"
+   ],
+   "Month": [
+    "Jul 17",
+    "Jun 17",
+    "May 17"
+   ]
+  },
+  "numeric_stats": {
+   "User engagement": {
+    "min": 3.4,
+    "max": 69.22,
+    "mean": 22.882667
    }
   },
   "context_warnings": []

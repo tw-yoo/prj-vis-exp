@@ -1,0 +1,1165 @@
+{
+ "0asi8pbitsbxnodv": {
+  "spec": {
+   "ops": [
+    {
+     "op": "filter",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "field": "Number of enterprises",
+     "operator": "<",
+     "value": 40
+    }
+   ],
+   "ops2": [
+    {
+     "op": "average",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "field": "Number of enterprises"
+    }
+   ]
+  },
+  "note": ""
+ },
+ "ddnda3bjdstiwf90": {
+  "spec": {
+   "ops": [
+    {
+     "op": "filter",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "field": "Year",
+     "include": [
+      "2006"
+     ]
+    },
+    {
+     "op": "sum",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 1
+     },
+     "field": "Percentage"
+    }
+   ],
+   "ops2": [
+    {
+     "op": "filter",
+     "id": "n3",
+     "meta": {
+      "nodeId": "n3",
+      "inputs": [],
+      "sentenceIndex": 2
+     },
+     "field": "Year",
+     "include": [
+      "2012"
+     ]
+    },
+    {
+     "op": "sum",
+     "id": "n4",
+     "meta": {
+      "nodeId": "n4",
+      "inputs": [
+       "n3"
+      ],
+      "sentenceIndex": 2
+     },
+     "field": "Percentage"
+    }
+   ],
+   "ops3": [
+    {
+     "op": "diff",
+     "id": "n5",
+     "meta": {
+      "nodeId": "n5",
+      "inputs": [
+       "n2",
+       "n4"
+      ],
+      "sentenceIndex": 3
+     },
+     "targetA": "ref:n2",
+     "targetB": "ref:n4",
+     "signed": false
+    }
+   ]
+  },
+  "note": "'total percentage across all parties' in a year = sum of the 3 party rows at that Year (two specific keys, not a per-key group-by), then |difference|."
+ },
+ "bhqzjnykymk43yqi": {
+  "spec": {
+   "ops": [
+    {
+     "op": "lagDiff",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "field": "Percentage of gross domestic product"
+    },
+    {
+     "op": "average",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "field": "Percentage of gross domestic product"
+    }
+   ]
+  },
+  "note": "avg of signed year-over-year deltas."
+ },
+ "dn0vscuua02yn80x": {
+  "spec": {
+   "ops": [
+    {
+     "op": "pairDiff",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "by": "Year",
+     "seriesField": "Gender",
+     "groupA": "female",
+     "groupB": "male",
+     "field": "Life expectancy at birth in years",
+     "absolute": true
+    }
+   ],
+   "ops2": [
+    {
+     "op": "sort",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "order": "desc"
+    },
+    {
+     "op": "nth",
+     "id": "n3",
+     "meta": {
+      "nodeId": "n3",
+      "inputs": [
+       "n2"
+      ],
+      "sentenceIndex": 2
+     },
+     "n": [
+      1,
+      2,
+      3
+     ]
+    }
+   ]
+  },
+  "note": "per-year |female-male| gap, sort desc, take top 3."
+ },
+ "5rjyoxyictwaceaz": {
+  "spec": {
+   "ops": [
+    {
+     "op": "lagDiff",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "field": "Youth unemployment rate",
+     "absolute": true
+    }
+   ],
+   "ops2": [
+    {
+     "op": "findExtremum",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "which": "max"
+    }
+   ],
+   "ops3": [
+    {
+     "op": "findExtremum",
+     "id": "n3",
+     "meta": {
+      "nodeId": "n3",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "which": "min"
+    }
+   ]
+  },
+  "note": "|YoY diff| then largest (max) and smallest (min); two answers."
+ },
+ "5ldzsatw0rpbpxz3": {
+  "spec": {
+   "ops": [
+    {
+     "op": "lagDiff",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "field": "Unemployment rate"
+    }
+   ],
+   "ops2": [
+    {
+     "op": "filter",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "field": "Unemployment rate",
+     "operator": ">",
+     "value": 0
+    },
+    {
+     "op": "average",
+     "id": "n3",
+     "meta": {
+      "nodeId": "n3",
+      "inputs": [
+       "n2"
+      ],
+      "sentenceIndex": 2
+     },
+     "field": "Unemployment rate"
+    }
+   ],
+   "ops3": [
+    {
+     "op": "filter",
+     "id": "n4",
+     "meta": {
+      "nodeId": "n4",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 3
+     },
+     "field": "Unemployment rate",
+     "operator": "<",
+     "value": 0
+    },
+    {
+     "op": "average",
+     "id": "n5",
+     "meta": {
+      "nodeId": "n5",
+      "inputs": [
+       "n4"
+      ],
+      "sentenceIndex": 3
+     },
+     "field": "Unemployment rate"
+    }
+   ]
+  },
+  "note": "YoY deltas split by sign; average of positive deltas and average of negative deltas; two answers."
+ },
+ "bd95lx2pntlr7ati": {
+  "spec": {
+   "ops": [
+    {
+     "op": "lagDiff",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "field": "Number of cases"
+    }
+   ],
+   "ops2": [
+    {
+     "op": "filter",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "field": "Number of cases",
+     "operator": ">",
+     "value": 0
+    },
+    {
+     "op": "average",
+     "id": "n3",
+     "meta": {
+      "nodeId": "n3",
+      "inputs": [
+       "n2"
+      ],
+      "sentenceIndex": 3
+     },
+     "field": "Number of cases"
+    }
+   ]
+  },
+  "note": ""
+ },
+ "0a2itmazs9jgmmgh": {
+  "spec": {
+   "ops": [
+    {
+     "op": "average",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "field": "Value of M&A in million euros"
+    }
+   ],
+   "ops2": [
+    {
+     "op": "filter",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "field": "Value of M&A in million euros",
+     "operator": "<",
+     "value": "ref:n1"
+    },
+    {
+     "op": "sum",
+     "id": "n3",
+     "meta": {
+      "nodeId": "n3",
+      "inputs": [
+       "n2"
+      ],
+      "sentenceIndex": 3
+     },
+     "field": "Value of M&A in million euros"
+    }
+   ]
+  },
+  "note": ""
+ },
+ "1lxkhjyirlc8ghzj": {
+  "spec": {
+   "ops": [
+    {
+     "op": "lagDiff",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "field": "Number of hotels"
+    }
+   ],
+   "ops2": [
+    {
+     "op": "findExtremum",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "which": "max"
+    },
+    {
+     "op": "findExtremum",
+     "id": "n3",
+     "meta": {
+      "nodeId": "n3",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "which": "min"
+    }
+   ],
+   "ops3": [
+    {
+     "op": "add",
+     "id": "n4",
+     "meta": {
+      "nodeId": "n4",
+      "inputs": [
+       "n2",
+       "n3"
+      ],
+      "sentenceIndex": 3
+     },
+     "targetA": "ref:n2",
+     "targetB": "ref:n3"
+    },
+    {
+     "op": "scale",
+     "id": "n5",
+     "meta": {
+      "nodeId": "n5",
+      "inputs": [
+       "n4"
+      ],
+      "sentenceIndex": 3
+     },
+     "target": "ref:n4",
+     "factor": 0.5
+    }
+   ]
+  },
+  "note": "signed YoY deltas; average of the largest (max) and smallest (most negative, min)."
+ },
+ "8rl54wqvzm1olimr": {
+  "spec": {
+   "ops": [
+    {
+     "op": "filter",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "group": "US-born"
+    },
+    {
+     "op": "lagDiff",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 1
+     },
+     "field": "Ratio of eligible voters(%)"
+    }
+   ],
+   "ops2": [
+    {
+     "op": "filter",
+     "id": "n3",
+     "meta": {
+      "nodeId": "n3",
+      "inputs": [
+       "n2"
+      ],
+      "sentenceIndex": 2
+     },
+     "field": "Ratio of eligible voters(%)",
+     "operator": ">",
+     "value": 0
+    },
+    {
+     "op": "count",
+     "id": "n4",
+     "meta": {
+      "nodeId": "n4",
+      "inputs": [
+       "n3"
+      ],
+      "sentenceIndex": 2
+     }
+    }
+   ]
+  },
+  "note": "restrict to the US-born series, YoY deltas, count positives."
+ },
+ "6macy6l6h00wvng7": {
+  "spec": {
+   "ops": [
+    {
+     "op": "pairDiff",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "by": "Year",
+     "seriesField": "Product Segment",
+     "groupA": "Personal care",
+     "groupB": "Foods and refreshment",
+     "field": "Revenue in million Euros",
+     "signed": true
+    }
+   ],
+   "ops2": [
+    {
+     "op": "filter",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "field": "Revenue in million Euros",
+     "operator": ">",
+     "value": 0
+    },
+    {
+     "op": "count",
+     "id": "n3",
+     "meta": {
+      "nodeId": "n3",
+      "inputs": [
+       "n2"
+      ],
+      "sentenceIndex": 3
+     }
+    }
+   ]
+  },
+  "note": "per-year (Personal care - Foods&refreshment); count years where the signed diff > 0."
+ },
+ "9hgt5h53p4ic33md": {
+  "spec": {
+   "ops": [
+    {
+     "op": "lagDiff",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "field": "Number of people in millions"
+    }
+   ],
+   "ops2": [
+    {
+     "op": "filter",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "field": "Number of people in millions",
+     "operator": ">=",
+     "value": 0.2
+    },
+    {
+     "op": "count",
+     "id": "n3",
+     "meta": {
+      "nodeId": "n3",
+      "inputs": [
+       "n2"
+      ],
+      "sentenceIndex": 3
+     }
+    }
+   ]
+  },
+  "note": ""
+ },
+ "b9vfcqsqid200mah": {
+  "spec": {
+   "ops": [
+    {
+     "op": "filter",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "group": "Disapprove"
+    },
+    {
+     "op": "lagDiff",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 1
+     },
+     "field": "Share of respondents"
+    }
+   ],
+   "ops2": [
+    {
+     "op": "findExtremum",
+     "id": "n3",
+     "meta": {
+      "nodeId": "n3",
+      "inputs": [
+       "n2"
+      ],
+      "sentenceIndex": 2
+     },
+     "which": "min",
+     "rank": 2
+    }
+   ]
+  },
+  "note": "restrict Disapprove series; steepest decrease = most negative YoY delta (min); rank 2 = second."
+ },
+ "0gehf5045207236n": {
+  "spec": {
+   "ops": [
+    {
+     "op": "filter",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "field": "Number of fatalities",
+     "operator": "<=",
+     "value": 100
+    }
+   ],
+   "ops2": [
+    {
+     "op": "count",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     }
+    }
+   ]
+  },
+  "note": ""
+ },
+ "8glm4qrzc2cbbq1e": {
+  "spec": {
+   "ops": [
+    {
+     "op": "lagDiff",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "field": "Number of cases"
+    }
+   ],
+   "ops2": [
+    {
+     "op": "findExtremum",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "which": "max"
+    }
+   ]
+  },
+  "note": ""
+ },
+ "8n0916e3z0epuuyi": {
+  "spec": {
+   "ops": [
+    {
+     "op": "lagDiff",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "field": "Youth unemployment rate(%)"
+    }
+   ],
+   "ops2": [
+    {
+     "op": "findExtremum",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "which": "max",
+     "rank": 2
+    }
+   ]
+  },
+  "note": ""
+ },
+ "0haw38g4veha18pm": {
+  "spec": {
+   "ops": [
+    {
+     "op": "lagDiff",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "field": "Sales values in million GBP"
+    }
+   ],
+   "ops2": [
+    {
+     "op": "findExtremum",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "which": "max",
+     "rank": 2
+    }
+   ]
+  },
+  "note": ""
+ },
+ "0cnwglgcwmsbhp4g": {
+  "spec": {
+   "ops": [
+    {
+     "op": "findExtremum",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "which": "max",
+     "rank": 2,
+     "field": "Sales volume in tones"
+    }
+   ]
+  },
+  "note": "second-highest value's year via findExtremum(max, rank 2)."
+ },
+ "71v97x2ifsxw6u8p": {
+  "spec": {
+   "ops": [
+    {
+     "op": "filter",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "group": "Unfavorable"
+    },
+    {
+     "op": "lagDiff",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 1
+     },
+     "field": "Jordanians favorabile views on Russia(%)"
+    }
+   ],
+   "ops2": [
+    {
+     "op": "findExtremum",
+     "id": "n3",
+     "meta": {
+      "nodeId": "n3",
+      "inputs": [
+       "n2"
+      ],
+      "sentenceIndex": 2
+     },
+     "which": "max"
+    }
+   ]
+  },
+  "note": "restrict Unfavorable series; largest positive YoY delta."
+ },
+ "6i84fq1ot2j0njaf": {
+  "spec": {
+   "ops": [
+    {
+     "op": "lagDiff",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "field": "Index score on a scale from 0 to 100"
+    }
+   ],
+   "ops2": [
+    {
+     "op": "filter",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "field": "Index score on a scale from 0 to 100",
+     "operator": "<",
+     "value": 0
+    },
+    {
+     "op": "nth",
+     "id": "n3",
+     "meta": {
+      "nodeId": "n3",
+      "inputs": [
+       "n2"
+      ],
+      "sentenceIndex": 3
+     },
+     "n": 1
+    }
+   ]
+  },
+  "note": "first negative YoY delta (rows stay in year order); nth n=1 = first decrease year."
+ },
+ "0dpnq3twj5hqhd53": {
+  "spec": {
+   "ops": [
+    {
+     "op": "sum",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "field": "Number of adoptions"
+    },
+    {
+     "op": "findExtremum",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "which": "max",
+     "field": "Number of adoptions"
+    }
+   ],
+   "ops2": [
+    {
+     "op": "diff",
+     "id": "n3",
+     "meta": {
+      "nodeId": "n3",
+      "inputs": [
+       "n2",
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "targetA": "ref:n2",
+     "targetB": "ref:n1",
+     "mode": "ratio",
+     "scale": 100
+    }
+   ]
+  },
+  "note": "highest adoption value / total adoptions * 100 (ratio mode, scaled to percent)."
+ },
+ "2jwbvymb2n0i24la": {
+  "spec": null,
+  "note": "GAP: standard deviation of a series is not in the grammar, and 'which group' needs a per-group dispersion aggregate then argmax over groups (group-by-aggregate). Neither is expressible."
+ },
+ "2qd9vs1accbshk2g": {
+  "spec": {
+   "ops": [
+    {
+     "op": "average",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "by": "Period",
+     "field": "Number of fatalities"
+    }
+   ],
+   "ops2": [
+    {
+     "op": "sort",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "order": "asc"
+    },
+    {
+     "op": "nth",
+     "id": "n3",
+     "meta": {
+      "nodeId": "n3",
+      "inputs": [
+       "n2"
+      ],
+      "sentenceIndex": 2
+     },
+     "n": [
+      1,
+      2,
+      3
+     ]
+    }
+   ]
+  },
+  "note": "per-Period mean across the two groups via average(by=Period) group-by shape, then the 3 lowest."
+ },
+ "1nhvdb1l9awjyxs1": {
+  "spec": null,
+  "note": "GAP: partition into consecutive 3-year windows then per-window standard deviation; rollingWindow supports sum/avg/min/max only, and std-dev is absent from the grammar."
+ },
+ "c7pc0uciecc5secj": {
+  "spec": null,
+  "note": "GAP: per-year share-of-total for US and for Japan (per-key percentage-of-total across series), per-year diff, then argmax year. Per-key normalization + group-by not expressible."
+ },
+ "8mntkwdil1gq6xzh": {
+  "spec": null,
+  "note": "GAP: argmax year of |male-female| diff, then re-slice that computed year to average its two series values. Binding a computed key back into a filter (arg-then-reaggregate) is not expressible."
+ },
+ "2v5t32vooc6fjci1": {
+  "spec": null,
+  "note": "GAP: select Services by a condition on the 'Less often' series (>10%) then average a DIFFERENT series ('Daily') over those keys. Cross-series conditional key transfer is not expressible."
+ },
+ "2un131viqyjzg34y": {
+  "spec": null,
+  "note": "GAP: argmax and argmin year by the 'Total' series, then average Fatalities and Woundings across those computed years and diff. Arg-then-reaggregate + group-by not expressible."
+ },
+ "2r83eabrn5muyizm": {
+  "spec": null,
+  "note": "GAP: argmax region by 2014 value, then cumulative total of THAT region across years. Binding a computed region label back into a slice (arg-then-reaggregate) is not expressible."
+ },
+ "chrkcwjl9vro8a6o": {
+  "spec": null,
+  "note": "GAP: per-quarter India share-of-total (per-key percentage-of-total across series) then threshold filter. Per-key normalization across series is not expressible."
+ },
+ "2qwuzopitv6gea9l": {
+  "spec": null,
+  "note": "GAP: select Countries where the 'Agree' series >= 50%, then diff two OTHER series (Disagree, Neither) over those keys. Cross-series conditional key transfer is not expressible."
+ },
+ "4623mdsdv9ewvlb7": {
+  "spec": {
+   "ops": [
+    {
+     "op": "sum",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "by": "Year",
+     "field": "Healthcare expenditure (in billion GBP)"
+    }
+   ],
+   "ops2": [
+    {
+     "op": "filter",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "field": "Healthcare expenditure (in billion GBP)",
+     "operator": ">=",
+     "value": 150
+    }
+   ]
+  },
+  "note": "per-Year total across the Public/Private series via sum(by=Year) group-by shape, then filter >= 150."
+ },
+ "7rsc3a0rw1rlh7pk": {
+  "spec": {
+   "ops": [
+    {
+     "op": "sum",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "by": "Period",
+     "field": "Number of news"
+    }
+   ],
+   "ops2": [
+    {
+     "op": "findExtremum",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "which": "min"
+    }
+   ]
+  },
+  "note": "per-Period total across the 3 media via sum(by=Period) group-by shape, then the minimum period."
+ },
+ "4j7o14z979o5bq5d": {
+  "spec": null,
+  "note": "GAP: per-year ratio decreased/increased (per-key ratio across series), then first year the ratio rises vs prior (monotonic on a derived per-key series). Neither derived series is expressible."
+ },
+ "3na7qc2587mdrbox": {
+  "spec": null,
+  "note": "GAP: the per-age-group average across regions IS expressible via average(by=Age Group), but the final step ranks a SPECIFIC named key (15-24) among that derived series, and there is no index-of-label / rank-of-named-key op. Ranking a named key among group-by aggregates not expressible."
+ },
+ "9g9t9lbwhc8yp623": {
+  "spec": null,
+  "note": "GAP: per-year Women's share-of-total (per-key percentage-of-total across series) then argmax year. Per-key normalization across series is not expressible."
+ },
+ "3nayzu649p458g9n": {
+  "spec": null,
+  "note": "GAP: per-age-group female/male ratio (per-key ratio across series) then argmax group. No per-key ratio op; group-by-aggregate not expressible."
+ },
+ "2wg6j8htdy5xge6g": {
+  "spec": null,
+  "note": "GAP: per-Type proportion of trust ratings >=3 (conditional sum over a subset of the Trust series divided by the per-Type total) then argmax. Cross-series conditional proportion not expressible."
+ },
+ "5h3kwud9twuzfrmo": {
+  "spec": null,
+  "note": "GAP: per-year Production/Total ratio (per-key ratio across series) then steepest rise of that derived ratio series (lagDiff+max). Per-key ratio series is not expressible."
+ },
+ "3have0aoq4pehoet": {
+  "spec": {
+   "ops": [
+    {
+     "op": "sum",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "by": "Company",
+     "field": "User engagement"
+    }
+   ],
+   "ops2": [
+    {
+     "op": "filter",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "field": "User engagement",
+     "operator": ">",
+     "value": 50
+    },
+    {
+     "op": "count",
+     "id": "n3",
+     "meta": {
+      "nodeId": "n3",
+      "inputs": [
+       "n2"
+      ],
+      "sentenceIndex": 2
+     }
+    }
+   ]
+  },
+  "note": "per-Company total across the Month series via sum(by=Company) group-by shape, then count totals > 50."
+ }
+}

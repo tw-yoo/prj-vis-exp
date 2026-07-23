@@ -770,3 +770,116 @@ Divide Asia's population by the sum of population of those continents."
 260,bar_grouped,56010lp5kjl1p4by,bar_grouped_56010lp5kjl1p4by,What is the difference in the growth rates of the average number of employees for full time and part time from 2012 to 2014?,"Divide the 2014 average number of employees by 2012 for part time.
 Divide the 2014 average number of employees by 2012 for full time.
 Calculate the difference."
+261,bar_simple,0asi8pbitsbxnodv,bar_simple_0asi8pbitsbxnodv,What is the average number of enterprises for the years where the number of enterprises is below 40?,"Filter the years where the number of enterprises is below 40.
+Calculate the average number of enterprises for the filtered years."
+262,line_multiple,ddnda3bjdstiwf90,line_multiple_ddnda3bjdstiwf90,What is the difference between the total percentage across all parties in 2006 and that in 2012?,"Calculate the total percentage across all parties for each year.
+Filter the results to include only the years 2006 and 2012.
+Calculate the difference between the two values."
+263,bar_grouped,2jwbvymb2n0i24la,bar_grouped_2jwbvymb2n0i24la,Which group has the largest standard deviation of the share of students among the three groups?,"Calculate the standard deviation of the share of students for each group.
+Compare the standard deviations across the three groups."
+264,bar_grouped,2qd9vs1accbshk2g,bar_grouped_2qd9vs1accbshk2g,Which three periods have the lowest average value across the two groups?,"Calculate the average value for each period across the two groups.
+Select the three periods with the lowest average values."
+265,bar_simple,1nhvdb1l9awjyxs1,bar_simple_1nhvdb1l9awjyxs1,"When the data is partitioned into consecutive three-year groups in chronological order, which group has the largest standard deviation, and which has the smallest?","Group the data into consecutive three-year periods in chronological order.
+Calculate the standard deviation for each group.
+Identify the groups with the largest and the smallest standard deviations."
+266,bar_stacked,c7pc0uciecc5secj,bar_stacked_c7pc0uciecc5secj,Which year shows the greatest difference between the United States' percentage of the total across all regions and Japan's percentage of the total across all regions over the four-year period?,"Calculate the percentage of the total across all regions for the United States and Japan for each of the four years.
+Calculate the difference between the two percentages for each year.
+Compare the differences across the four years."
+267,line_simple,bhqzjnykymk43yqi,line_simple_bhqzjnykymk43yqi,What is the average of the year-over-year differences across all years?,"Calculate the year-over-year difference for each year.
+Calculate the average of the differences."
+268,line_multiple,dn0vscuua02yn80x,line_multiple_dn0vscuua02yn80x,Which three years have the largest difference between the female and male values?,"Calculate the difference between the female and male values for each year.
+Filter the top three years with the largest differences."
+269,line_multiple,8mntkwdil1gq6xzh,line_multiple_8mntkwdil1gq6xzh,What is the average of the male and female earnings for the year with the largest difference between male and female earnings?,"Calculate the difference between the male and female earnings for each year.
+Identify the year with the largest difference.
+Calculate the average of the male and female earnings for that year."
+270,line_simple,5rjyoxyictwaceaz,line_simple_5rjyoxyictwaceaz,"Which year pair has the largest absolute year-over-year difference, and which year pair has the smallest?","Calculate the absolute value of each year-over-year difference.
+Identify the consecutive-year groups with the largest and the smallest absolute year-over-year differences."
+271,bar_stacked,2v5t32vooc6fjci1,bar_stacked_2v5t32vooc6fjci1,"What is the average ratio of respondents who selected ""Daily"" for the services where the ""Less often"" frequency exceeds 10%?","Filter the services where the ""Less often"" frequency exceeds 10%.
+Calculate the average ratio of ""Daily"" responses for the filtered services."
+272,bar_grouped,2un131viqyjzg34y,bar_grouped_2un131viqyjzg34y,What is the difference between the average of fatalities and the average of woundings for the year with the highest total and the year with the lowest total?,"Filter the year with the highest total and the year with the lowest total.
+Calculate the average fatalities and the average woundings for the filtered years.
+Calculate the difference between the average fatalities and the average woundings."
+273,bar_grouped,2r83eabrn5muyizm,bar_grouped_2r83eabrn5muyizm,What is the cumulative total for the region with the highest dollar value in 2014?,"Filter the region with the highest dollar value in 2014.
+Calculate the cumulative total of the dollar values for the selected region."
+274,bar_stacked,chrkcwjl9vro8a6o,bar_stacked_chrkcwjl9vro8a6o,In which years is India's percentage of the total less than 30%?,"Calculate India's percentage of the total for each year.
+Filter the years where India's percentage is below 30%."
+275,line_simple,5ldzsatw0rpbpxz3,line_simple_5ldzsatw0rpbpxz3,What are the average ratio values for the year groups where the ratio increased and decreased compared to the previous year?,"Calculate the year-over-year change rate for each year.
+Separate the years into two groups: years with positive change rates and years with negative change rates.
+Calculate the average change rate for each group."
+276,line_simple,bd95lx2pntlr7ati,line_simple_bd95lx2pntlr7ati,What is the average of the delta values for the dates where the change over time is positive?,"Calculate the delta value for each date.
+Filter the dates with a positive delta value.
+Calculate the average of the filtered delta values."
+277,bar_simple,0a2itmazs9jgmmgh,bar_simple_0a2itmazs9jgmmgh,What is the total value of the companies with values below the average value across all companies?,"Calculate the average value across all companies.
+Filter the companies with values below the average.
+Calculate the sum of the values for the filtered companies."
+278,bar_stacked,2qwuzopitv6gea9l,bar_stacked_2qwuzopitv6gea9l,"For the countries with an agree percentage of at least 50%, what is the difference between the disagree and neither percentages?","Filter the countries with an agree percentage of at least 50%.
+Calculate the difference between the disagree and neither percentages for the filtered countries."
+279,bar_simple,1lxkhjyirlc8ghzj,bar_simple_1lxkhjyirlc8ghzj,What is the average of the largest and the smallest year-over-year differences in the number of hotels?,"Calculate the year-over-year difference in the number of hotels.
+Identify the largest and the smallest differences.
+Calculate the average of those two values."
+280,line_multiple,4623mdsdv9ewvlb7,line_multiple_4623mdsdv9ewvlb7,Which years have a total sum of public and private values of at least 150?,"Calculate the sum of public and private values for each year.
+Filter the years with a sum of at least 150."
+281,line_multiple,7rsc3a0rw1rlh7pk,line_multiple_7rsc3a0rw1rlh7pk,What period has the lowest total number of news articles across all media?,"For each period, add together the number of news articles published by all media outlets.
+Calculate the total number of news articles for every period.
+Compare the total news counts across all periods and identify the period with the smallest overall total."
+282,line_multiple,8rl54wqvzm1olimr,line_multiple_8rl54wqvzm1olimr,How many periods show an increase in the value of the us-born category compared with the previous period?,"Compare the us-born value of each period with the value from the immediately preceding period.
+Count each period where the current us-born value is greater than the previous period's value."
+283,bar_stacked,4j7o14z979o5bq5d,bar_stacked_4j7o14z979o5bq5d,What is the first year in which the ratio of decreased values to increased values begins to increase?,"Calculate the ratio of decreased to increased for each year: decreased ÷ increased.
+Compare each year's ratio with the ratio from the previous year.
+Find the first year in which this ratio becomes larger than the previous year's ratio."
+284,bar_stacked,3na7qc2587mdrbox,bar_stacked_3na7qc2587mdrbox,What is the rank of the average value for the 15–24 age group across all regions?,"Calculate the average of the 15–24 group values across all regions.
+Compare this average with the corresponding values of the other groups or regions, depending on the chart's ranking criterion.
+Rank the calculated average from highest to lowest.
+Select the position of the calculated average in the ranking as the answer."
+285,bar_stacked,6macy6l6h00wvng7,bar_stacked_6macy6l6h00wvng7,How many years had a higher value for Personal care than for Foods and refreshment?,"Compare the Personal care value with the Foods and refreshment value for each year.
+Identify every year where Personal care > Foods and refreshment.
+Count all years that satisfy this condition."
+286,bar_stacked,9g9t9lbwhc8yp623,bar_stacked_9g9t9lbwhc8yp623,What period has the highest proportion of women relative to the total value across the entire time period?,"Calculate the proportion of women for each period: women ÷ total value.
+Compare the calculated proportions across all periods.
+Identify the period with the largest women-to-total proportion."
+287,line_simple,9hgt5h53p4ic33md,line_simple_9hgt5h53p4ic33md,How many years had an increase in the # of people of at least 0.2 million compared with the previous year?,"Compare the # of people value for each year with the value from the previous year.
+Calculate the increase: current year's value − previous year's value.
+Identify each year where the increase is greater than or equal to 0.2 million.
+Count all years that satisfy this condition."
+288,bar_grouped,3nayzu649p458g9n,bar_grouped_3nayzu649p458g9n,Which age group has the highest ratio of female to male values?,"Calculate the ratio for each group: female ÷ male.
+Compare the calculated ratios across all age groups.
+Identify the age group with the largest female-to-male ratio."
+289,line_multiple,b9vfcqsqid200mah,line_multiple_b9vfcqsqid200mah,What is the period when Disapprove experienced the second-steepest decrease?,"Compare the Disapprove value between each pair of consecutive periods.
+Calculate the decrease for each interval: previous period's value − current period's value.
+Rank all decreases from largest to smallest.
+Identify the second-largest decrease."
+290,bar_simple,0gehf5045207236n,bar_simple_0gehf5045207236n,How many periods had a number of fatalities of 100 or fewer?,"Identify every period where the value is less than or equal to 100.
+Count all periods that satisfy the condition Number of fatalities ≤ 100."
+291,line_simple,8glm4qrzc2cbbq1e,line_simple_8glm4qrzc2cbbq1e,What period shows the steepest increase in the number of cases?,"Compare the # of cases between each consecutive pair of periods.
+Calculate the increase for each interval: current period's # of cases − previous period's # of cases.
+Identify the period with the largest positive increase compared with the immediately preceding period."
+292,line_simple,8n0916e3z0epuuyi,line_simple_8n0916e3z0epuuyi,What is the period with the second-steepest increase in value across the entire time period?,"Calculate the increase between each consecutive pair of periods: current value − previous value.
+Rank all increases from largest to smallest.
+Identify the second-largest increase."
+293,bar_grouped,2wg6j8htdy5xge6g,bar_grouped_2wg6j8htdy5xge6g,Which type has the highest proportion of trust ratings of 3 or higher?,"For each type, count the number of responses with a trust rating of 3 or higher.
+Calculate the proportion using: (Number of ratings ≥ 3) ÷ (Total number of ratings for that type).
+Compare the calculated proportions across all types.
+Identify the type with the highest proportion.
+The answer is the type with the largest percentage of respondents who gave a trust rating of 3 or higher."
+294,bar_grouped,5h3kwud9twuzfrmo,bar_grouped_5h3kwud9twuzfrmo,What is the period when the ratio of production animals to total animal health increases most sharply?,"Calculate the ratio for each period: production animals ÷ total animal health.
+Compare each period's ratio with the ratio from the previous period.
+Calculate the change in the ratio between consecutive periods.
+Identify the period with the largest positive increase in this ratio."
+295,bar_simple,0haw38g4veha18pm,bar_simple_0haw38g4veha18pm,What is the period when the value experienced the second-steepest increase across the entire time period?,"Calculate the increase between each pair of consecutive periods: current value − previous value.
+Rank all increases from largest to smallest.
+Identify the second-largest increase."
+296,bar_simple,0cnwglgcwmsbhp4g,bar_simple_0cnwglgcwmsbhp4g,What year has the second-highest value in the chart?,"Compare the values for all years shown in the chart.
+Identify the year with the highest value.
+Find the year with the second-highest value.
+Select that year as the answer."
+297,line_multiple,71v97x2ifsxw6u8p,line_multiple_71v97x2ifsxw6u8p,What is the period when the unfavorable value increased most sharply across the entire time period?,"Compare the unfavorable value between each pair of consecutive periods.
+Calculate the increase for each interval: current unfavorable value − previous unfavorable value.
+Identify the interval with the largest positive increase."
+298,line_simple,6i84fq1ot2j0njaf,line_simple_6i84fq1ot2j0njaf,What is the first year in which the index score decreases compared with the previous year?,"Compare the index score of each year with the score of the immediately preceding year.
+Identify the first year where the index score is lower than the previous year's score."
+299,bar_simple,0dpnq3twj5hqhd53,bar_simple_0dpnq3twj5hqhd53,What percentage of the total adoption does the country with the highest number of adoptions represent?,"Identify the country with the highest # of adoption.
+Add the adoption values of all countries to calculate the total number of adoptions.
+Divide the highest country's adoption value by the total adoption value."
+300,bar_grouped,3have0aoq4pehoet,bar_grouped_3have0aoq4pehoet,How many companies have a total user engagement value exceeding 50 across the entire period?,"Add all user engagement values across the entire period for each company.
+Compare each company's total with the threshold of 50.
+Count the companies whose total user engagement is greater than 50."
