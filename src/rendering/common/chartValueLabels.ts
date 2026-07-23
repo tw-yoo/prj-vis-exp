@@ -34,6 +34,11 @@ const SETTLE_MAX_WAIT_MS = 5000
 export type ValueLabelOptions = {
   // Fade the fresh labels in instead of popping.
   fade?: boolean
+  // Hold the (invisible) labels this long before the fade begins, so the
+  // step's answer annotation is read first and the values settle in after.
+  // Implemented as a CSS transition-delay, so a follow-up clear/re-apply drops
+  // the pending fade with the overlay — no dangling timer.
+  delayMs?: number
 }
 
 export type SettleOptions = ValueLabelOptions & {
@@ -374,14 +379,16 @@ function removeBakedValueLabels(svg: SVGSVGElement, labeledMarks: SVGGraphicsEle
   })
 }
 
-function applyNow(container: HTMLElement, fade: boolean) {
+function applyNow(container: HTMLElement, fade: boolean, delayMs = 0) {
   const svgs = Array.from(container.querySelectorAll<SVGSVGElement>('svg'))
   svgs.forEach((svg) => {
     const overlay = renderLabelsForSvg(svg)
     if (overlay && fade) {
       overlay.style.opacity = '0'
       requestAnimationFrame(() => {
-        overlay.style.transition = 'opacity 300ms ease'
+        overlay.style.transition = delayMs > 0
+          ? `opacity 300ms ease ${delayMs}ms`
+          : 'opacity 300ms ease'
         overlay.style.opacity = '1'
       })
     }
@@ -398,7 +405,7 @@ function cancelPendingRaf(container: HTMLElement) {
 
 export function applyChartValueLabels(container: HTMLElement, options: ValueLabelOptions = {}) {
   cancelPendingRaf(container)
-  applyNow(container, options.fade ?? false)
+  applyNow(container, options.fade ?? false, options.delayMs ?? 0)
 }
 
 // True while any d3 transition is scheduled or running anywhere in the chart:

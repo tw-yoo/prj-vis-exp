@@ -15,6 +15,11 @@ import type { ExplanationMethod, ExplanationRenderer, RendererContext } from './
 import { buildCalculationSummaryText, drawSummaryTextBox } from '../../api/operation-summary-text'
 import { applyChartValueLabels, clearChartValueLabels } from '../../rendering/common/chartValueLabels'
 
+// Hold the always-on value labels this long after a chart/step settles before
+// they fade in, so the step's answer annotation registers first and the numbers
+// arrive together a beat later (restores the prior ~400ms delayed reveal).
+const VALUE_LABEL_DELAY_MS = 400
+
 type StepManifest = {
   id: string
   text: string
@@ -386,8 +391,8 @@ export class OursRenderer implements ExplanationRenderer {
       // doesn't clear it.
       drawSummaryTextBox(this.context.container, '', { placement: 'bottom' })
       await renderChart(this.context.container, this.chart.spec)
-      applyChartValueLabels(this.context.container)
       fitSvgViewBoxToContent(this.context.container)
+      applyChartValueLabels(this.context.container, { fade: true, delayMs: VALUE_LABEL_DELAY_MS })
       this.resetSession()
       return
     }
@@ -409,7 +414,7 @@ export class OursRenderer implements ExplanationRenderer {
       // once the step's ops have settled.
       clearChartValueLabels(this.context.container)
       await this.executeStep(index, previousRecord, /* isReplay */ false)
-      applyChartValueLabels(this.context.container, { fade: true })
+      applyChartValueLabels(this.context.container, { fade: true, delayMs: VALUE_LABEL_DELAY_MS })
       this.lastRenderedStepIndex = index
       return
     }
@@ -433,7 +438,7 @@ export class OursRenderer implements ExplanationRenderer {
       else await exec()
       previous = this.stepRecords[i]
     }
-    applyChartValueLabels(this.context.container, { fade: true })
+    applyChartValueLabels(this.context.container, { fade: true, delayMs: VALUE_LABEL_DELAY_MS })
     this.lastRenderedStepIndex = index
   }
 
